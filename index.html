@@ -221,7 +221,7 @@
                         let bujur = latlon[0];
                         let lintang = latlon[1];
 
-                        // RUMUS TERBARU: Tinggi WP Terikat = Z_WP - Nilai MSL, dan Delta Z = |Z_GNSS - Tinggi WP Terikat|
+                        // RUMUS FIX: Tinggi WP Terikat = Z_WP - Nilai MSL (Menggunakan tanda minus)
                         let tinggi_wp_terikat = z_wp - msl;
                         let selisih = Math.abs(z_gnss - tinggi_wp_terikat);
                         let warnaTitik = tentukanWarna(selisih);
