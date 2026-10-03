@@ -3,29 +3,48 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pembuatan Program Perhitungan Ketinggian dan Ketelitian Berbasis Data Pasang Surut</title>
+    <title>WebGIS Uji Akurasi Vertikal GNSS vs Waterpass</title>
     
     <!-- CSS Leaflet -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     
     <style>
         body { font-family: Arial, sans-serif; margin: 0; padding: 20px; display: flex; gap: 20px; }
-        #sidebar { width: 320px; background: #f4f4f4; padding: 20px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+        #sidebar { width: 320px; background: #f4f4f4; padding: 20px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); overflow-y: auto; max-height: 90vh;}
         #map { flex-grow: 1; height: 90vh; border-radius: 8px; border: 2px solid #ccc; z-index: 1;}
         .input-group { margin-bottom: 15px; }
         .input-group label { display: block; font-size: 13px; margin-bottom: 5px; font-weight: bold;}
         .input-group input { width: 100%; padding: 8px; box-sizing: border-box; border-radius: 4px; border: 1px solid #ccc;}
-        button { width: 100%; padding: 12px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 14px;}
-        button:hover { background: #218838; }
+        button { width: 100%; padding: 12px; background: #007BFF; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 14px; margin-bottom: 10px;}
+        button:hover { background: #0056b3; }
+        #btnDownload { background: #28a745; display: none; }
+        #btnDownload:hover { background: #218838; }
         .result-box { margin-top: 20px; padding: 15px; background: #e2e3e5; font-size: 13px; border-left: 5px solid #007BFF; border-radius: 4px;}
         .note { font-size: 11px; color: #dc3545; margin-top: 5px; }
+        
+        /* Modifikasi Tampilan Label Teks di atas Peta Citra */
+        .label-titik {
+            background: rgba(0, 0, 0, 0.6); /* Latar belakang hitam transparan */
+            border: none;
+            color: #fff; /* Teks putih */
+            font-size: 10px;
+            font-weight: bold;
+            box-shadow: none;
+            line-height: 1.3;
+        }
+        .leaflet-tooltip-left.label-titik::before { border-left-color: rgba(0,0,0,0.6); }
+        .leaflet-tooltip-right.label-titik::before { border-right-color: rgba(0,0,0,0.6); }
+        
+        /* Legenda Warna */
+        .legend { background: white; padding: 10px; font-size: 12px; line-height: 1.5; border-radius: 5px; box-shadow: 0 0 15px rgba(0,0,0,0.2); }
+        .legend i { width: 15px; height: 15px; float: left; margin-right: 8px; border-radius: 50%; }
     </style>
 </head>
 <body>
 
-    <!-- Panel Input Data -->
+    <!-- Panel Kontrol -->
     <div id="sidebar">
-        <h3 style="margin-top: 0;">Upload Data Pengukuran</h3>
+        <h3 style="margin-top: 0;">Upload Data & Ekspor</h3>
         
         <div class="input-group">
             <label>1. Nilai MSL (m):</label>
@@ -35,10 +54,11 @@
         <div class="input-group">
             <label>2. Upload File Excel (.xlsx / .csv):</label>
             <input type="file" id="fileExcel" accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel">
-            <div class="note">*Pastikan header kolom persis: Nama_Titik, X_GNSS, Y_GNSS, Tinggi_GNSS, Tinggi_WaterLevel (Sistem Koordinat UTM Zone 48S)</div>
+            <div class="note">*Pastikan header kolom: Nama_Titik, X_GNSS, Y_GNSS, Tinggi_GNSS, Tinggi_WaterLevel</div>
         </div>
         
-        <button onclick="prosesExcel()">Hitung & Petakan Semua Data</button>
+        <button onclick="prosesExcel()">Hitung & Petakan</button>
+        <button id="btnDownload" onclick="downloadData()">⬇️ Download Hasil (Excel)</button>
 
         <div id="hasilHitungan" class="result-box" style="display: none;"></div>
     </div>
@@ -46,32 +66,52 @@
     <!-- Kontainer Peta -->
     <div id="map"></div>
 
-    <!-- JS Leaflet -->
+    <!-- JS Library -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <!-- JS SheetJS (Untuk baca Excel) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <!-- JS Proj4 (Untuk konversi koordinat UTM ke Geografis) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.9.0/proj4.js"></script>
     
     <script>
-        // Inisialisasi Peta (Default koordinat diatur ke Lampung)
-        var map = L.map('map').setView([-5.358, 105.315], 11);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '&copy; OpenStreetMap contributors'
+        // 1. Inisialisasi Peta dengan Basemap Citra Satelit (Esri World Imagery)
+        var map = L.map('map').setView([-5.358, 105.315], 14);
+        L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+            attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
         }).addTo(map);
 
         var markerGroup = L.layerGroup().addTo(map);
-
-        // Definisi Sistem Koordinat UTM Zone 48S (Lampung) ke WGS84
         proj4.defs("EPSG:32748", "+proj=utm +zone=48 +south +datum=WGS84 +units=m +no_defs");
+
+        // Variabel global untuk menyimpan data hasil hitungan
+        let dataHasil = [];
+
+        // Fungsi Penentuan Warna Berdasarkan Ketelitian (Selisih)
+        function tentukanWarna(selisih) {
+            // Anda bisa mengubah rentang angka (threshold) ini sesuai standar toleransi project Anda
+            if (selisih <= 1.0) return "#00ff00"; // Hijau (Sangat Baik / < 1m)
+            else if (selisih <= 5.0) return "#ffff00"; // Kuning (Cukup / 1m - 5m)
+            else if (selisih <= 15.0) return "#ffa500"; // Orange (Kurang / 5m - 15m)
+            else return "#ff0000"; // Merah (Buruk / > 15m)
+        }
+
+        // Tambahkan Legenda ke Peta
+        var legend = L.control({position: 'bottomright'});
+        legend.onAdd = function (map) {
+            var div = L.DomUtil.create('div', 'legend');
+            div.innerHTML += '<b>Ketelitian (ΔZ)</b><br>';
+            div.innerHTML += '<i style="background: #00ff00"></i> &le; 1.0 m<br>';
+            div.innerHTML += '<i style="background: #ffff00"></i> 1.1 - 5.0 m<br>';
+            div.innerHTML += '<i style="background: #ffa500"></i> 5.1 - 15.0 m<br>';
+            div.innerHTML += '<i style="background: #ff0000"></i> &gt; 15.0 m<br>';
+            return div;
+        };
+        legend.addTo(map);
 
         function prosesExcel() {
             let fileInput = document.getElementById('fileExcel');
             let msl = parseFloat(document.getElementById('tinggiMsl').value);
 
-            // Validasi Input
-            if (isNaN(msl)) { alert("Harap isi Nilai Tinggi MSL terlebih dahulu!"); return; }
-            if (!fileInput.files.length) { alert("Harap pilih file Excel terlebih dahulu!"); return; }
+            if (isNaN(msl)) { alert("Harap isi Nilai Tinggi MSL!"); return; }
+            if (!fileInput.files.length) { alert("Harap pilih file Excel!"); return; }
 
             let file = fileInput.files[0];
             let reader = new FileReader();
@@ -79,18 +119,13 @@
             reader.onload = function(e) {
                 let data = new Uint8Array(e.target.result);
                 let workbook = XLSX.read(data, {type: 'array'});
-                let firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-                
-                // Konversi Excel ke Format JSON (Array of Objects)
-                let jsonData = XLSX.utils.sheet_to_json(firstSheet);
+                let jsonData = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
 
-                // Bersihkan marker lama jika ada
                 markerGroup.clearLayers();
+                dataHasil = []; // Kosongkan data sebelumnya
                 let bounds = [];
-                let titikBerhasil = 0;
 
                 jsonData.forEach(row => {
-                    // Mengambil data berdasarkan nama kolom di Excel Anda
                     let nama = row['Nama_Titik'];
                     let x_utm = parseFloat(row['X_GNSS']);
                     let y_utm = parseFloat(row['Y_GNSS']);
@@ -99,47 +134,70 @@
 
                     if(!isNaN(x_utm) && !isNaN(y_utm) && !isNaN(z_gnss) && !isNaN(z_wp)) {
                         
-                        // 1. Konversi Koordinat UTM (X, Y) ke Geografis (Bujur, Lintang)
                         let latlon = proj4("EPSG:32748", "EPSG:4326", [x_utm, y_utm]);
                         let bujur = latlon[0];
                         let lintang = latlon[1];
 
-                        // 2. Perhitungan Tinggi dan Selisih
                         let tinggi_wp_terikat = z_wp + msl;
                         let selisih = Math.abs(z_gnss - tinggi_wp_terikat);
+                        let warnaTitik = tentukanWarna(selisih);
 
-                        // 3. Buat Marker di Peta
-                        let marker = L.marker([lintang, bujur]).addTo(markerGroup);
-                        marker.bindPopup(`
-                            <div style="font-size:13px;">
-                                <h4 style="margin:0 0 5px 0; color:#007BFF;">${nama}</h4>
-                                <b>Koordinat UTM:</b> ${x_utm.toFixed(2)}, ${y_utm.toFixed(2)}<br>
-                                <b>Z GNSS:</b> ${z_gnss.toFixed(3)} m<br>
-                                <b>Z WP (Terikat MSL):</b> ${tinggi_wp_terikat.toFixed(3)} m<hr style="margin:5px 0;">
-                                <b style="color:#d9534f;">Selisih (ΔZ): ${selisih.toFixed(3)} m</b>
-                            </div>
-                        `);
-                        
+                        // Menyimpan data ke array untuk fitur Download
+                        dataHasil.push({
+                            "Nama Titik": nama,
+                            "X UTM (Zone 48S)": x_utm,
+                            "Y UTM (Zone 48S)": y_utm,
+                            "Z GNSS (m)": z_gnss,
+                            "Z Waterpass Awal (m)": z_wp,
+                            "Nilai MSL (m)": msl,
+                            "Z Waterpass Terikat MSL (m)": tinggi_wp_terikat,
+                            "Selisih / Deviasi (m)": selisih
+                        });
+
+                        // Membuat Titik Bulat (Circle Marker)
+                        let circle = L.circleMarker([lintang, bujur], {
+                            radius: 6,
+                            fillColor: warnaTitik,
+                            color: "#ffffff", // Garis tepi putih
+                            weight: 1.5,
+                            opacity: 1,
+                            fillOpacity: 0.9
+                        }).addTo(markerGroup);
+
+                        // Menambahkan Teks di Sebelah Titik (Tooltip Permanen)
+                        let labelTeks = `
+                            <span style="color:#00e5ff">${nama}</span><br>
+                            GNSS: ${z_gnss.toFixed(2)}m<br>
+                            WP: ${tinggi_wp_terikat.toFixed(2)}m<br>
+                            Beda: ${selisih.toFixed(2)}m
+                        `;
+                        circle.bindTooltip(labelTeks, {
+                            permanent: true, 
+                            direction: 'right', 
+                            className: 'label-titik',
+                            offset: [5, 0] // Geser sedikit dari pusat titik
+                        });
+
                         bounds.push([lintang, bujur]);
-                        titikBerhasil++;
                     }
                 });
 
-                // Tampilkan pesan hasil
-                let hasilDiv = document.getElementById('hasilHitungan');
-                hasilDiv.style.display = 'block';
-                
-                if(titikBerhasil > 0) {
-                    hasilDiv.innerHTML = `<b>SUKSES!</b><br>Berhasil memproses dan memetakan <b>${titikBerhasil} titik</b> pengukuran.<br><br><i>Silakan klik ikon lokasi biru pada peta untuk melihat detail perhitungan selisih pada masing-masing titik.</i>`;
-                    // Arahkan peta agar semua titik terlihat
+                if(dataHasil.length > 0) {
+                    document.getElementById('hasilHitungan').style.display = 'block';
+                    document.getElementById('hasilHitungan').innerHTML = `<b>BERHASIL!</b><br>Memetakan ${dataHasil.length} titik.`;
+                    document.getElementById('btnDownload').style.display = 'block'; // Munculkan tombol download
                     map.fitBounds(bounds, {padding: [50, 50]});
-                } else {
-                    hasilDiv.innerHTML = `<b style="color:red;">GAGAL:</b><br>Tidak ada data valid yang bisa dibaca. Pastikan nama kolom di baris pertama Excel Anda persis seperti ini: <i>Nama_Titik, X_GNSS, Y_GNSS, Tinggi_GNSS, Tinggi_WaterLevel</i>`;
                 }
             };
-            
-            // Eksekusi pembacaan file
             reader.readAsArrayBuffer(file);
+        }
+
+        // Fungsi untuk mengunduh data kembali ke Excel
+        function downloadData() {
+            let worksheet = XLSX.utils.json_to_sheet(dataHasil);
+            let workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, "Hasil_Hitungan");
+            XLSX.writeFile(workbook, "Hasil_Akurasi_Vertikal.xlsx");
         }
     </script>
 </body>
