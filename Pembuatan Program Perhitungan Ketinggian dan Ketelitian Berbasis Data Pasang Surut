@@ -1,0 +1,129 @@
+index.html
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebGIS Uji Akurasi Vertikal GNSS vs Waterpass</title>
+    
+    <!-- Memanggil CSS Leaflet untuk Peta -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; display: flex; gap: 20px; }
+        #sidebar { width: 300px; background: #f4f4f4; padding: 15px; border-radius: 8px; }
+        #map { flex-grow: 1; height: 90vh; border-radius: 8px; border: 2px solid #ccc; }
+        .input-group { margin-bottom: 10px; }
+        .input-group label { display: block; font-size: 12px; margin-bottom: 5px; font-weight: bold;}
+        .input-group input { width: 100%; padding: 8px; box-sizing: border-box; }
+        button { width: 100%; padding: 10px; background: #007BFF; color: white; border: none; cursor: pointer; font-weight: bold; }
+        button:hover { background: #0056b3; }
+        .result-box { margin-top: 20px; padding: 10px; background: #e9ecef; font-size: 14px; border-left: 4px solid #28a745; }
+    </style>
+</head>
+<body>
+
+    <!-- Panel Input Data -->
+    <div id="sidebar">
+        <h3>Input Data Pengukuran</h3>
+        
+        <div class="input-group">
+            <label>Referensi Tinggi MSL (m):</label>
+            <input type="number" step="any" id="tinggiMsl" placeholder="Contoh: 1.25">
+        </div>
+        
+        <hr>
+        
+        <div class="input-group">
+            <label>Koordinat Y (Lintang/Latitude):</label>
+            <input type="number" step="any" id="coordY" placeholder="-5.358... (Gunakan derajat desimal)">
+        </div>
+        
+        <div class="input-group">
+            <label>Koordinat X (Bujur/Longitude):</label>
+            <input type="number" step="any" id="coordX" placeholder="105.315... (Gunakan derajat desimal)">
+        </div>
+        
+        <div class="input-group">
+            <label>Tinggi Z GNSS (m):</label>
+            <input type="number" step="any" id="zGnss" placeholder="Contoh: 45.6">
+        </div>
+        
+        <div class="input-group">
+            <label>Beda Tinggi Z Waterpass (m):</label>
+            <input type="number" step="any" id="zWaterpass" placeholder="Contoh: 44.2">
+        </div>
+        
+        <button onclick="hitungDanPetakan()">Hitung & Petakan</button>
+
+        <div id="hasilHitungan" class="result-box" style="display: none;"></div>
+    </div>
+
+    <!-- Kontainer Peta -->
+    <div id="map"></div>
+
+    <!-- Memanggil JS Leaflet -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <script>
+        // Inisialisasi Peta (Default koordinat diatur sekitar wilayah Lampung/ITERA)
+        var map = L.map('map').setView([-5.358, 105.315], 13);
+
+        // Menambahkan Basemap dari OpenStreetMap
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap contributors'
+        }).addTo(map);
+
+        // Layer group untuk menampung marker agar bisa ditambah terus
+        var markerGroup = L.layerGroup().addTo(map);
+
+        function hitungDanPetakan() {
+            // Mengambil nilai dari form
+            let msl = parseFloat(document.getElementById('tinggiMsl').value);
+            let y = parseFloat(document.getElementById('coordY').value);
+            let x = parseFloat(document.getElementById('coordX').value);
+            let z_gnss = parseFloat(document.getElementById('zGnss').value);
+            let z_wp = parseFloat(document.getElementById('zWaterpass').value);
+
+            // Validasi jika ada input yang kosong
+            if(isNaN(msl) || isNaN(y) || isNaN(x) || isNaN(z_gnss) || isNaN(z_wp)) {
+                alert("Harap isi semua data dengan angka yang valid!");
+                return;
+            }
+
+            // PERHITUNGAN AKURASI VERTIKAL
+            // Tinggi Ortometrik WP = Beda tinggi WP + Referensi MSL
+            let tinggi_wp_terikat = z_wp + msl; 
+            
+            // Selisih (Delta Z) antara GNSS dan WP yang terikat MSL
+            let selisih = Math.abs(z_gnss - tinggi_wp_terikat);
+
+            // Menampilkan hasil di sidebar
+            let hasilDiv = document.getElementById('hasilHitungan');
+            hasilDiv.style.display = 'block';
+            hasilDiv.innerHTML = `
+                <strong>Hasil Perhitungan:</strong><br>
+                Z WP Terikat MSL: ${tinggi_wp_terikat.toFixed(3)} m<br>
+                Z GNSS: ${z_gnss.toFixed(3)} m<br>
+                <strong>Selisih (ΔZ): ${selisih.toFixed(3)} m</strong>
+            `;
+
+            // Membuat Marker di Peta
+            let marker = L.marker([y, x]).addTo(markerGroup);
+            
+            // Membuat Popup yang muncul saat marker diklik
+            let popupContent = `
+                <b>Titik Pengukuran</b><br>
+                Koordinat: ${y}, ${x}<br>
+                Tinggi GNSS: ${z_gnss} m<br>
+                Tinggi WP (Terikat MSL): ${tinggi_wp_terikat.toFixed(3)} m<br>
+                <b>Selisih Vertikal: ${selisih.toFixed(3)} m</b>
+            `;
+            marker.bindPopup(popupContent).openPopup();
+
+            // Mengarahkan peta (zoom) ke titik yang baru ditambahkan
+            map.flyTo([y, x], 16);
+        }
+    </script>
+</body>
+</html>
