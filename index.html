@@ -23,6 +23,7 @@
             display: flex;
             flex-direction: column;
             gap: 15px;
+            z-index: 2;
         }
 
         /* Banner Judul Program */
@@ -42,33 +43,33 @@
         #map { flex-grow: 1; height: 93vh; border-radius: 10px; border: none; box-shadow: 0 5px 15px rgba(0,0,0,0.15); z-index: 1;}
         
         /* Elemen Input */
-        .input-group { background: #f8f9fa; padding: 12px; border-radius: 6px; border: 1px solid #dee2e6; }
+        .input-group { background: #f8f9fa; padding: 15px; border-radius: 6px; border: 1px solid #dee2e6; }
         .input-group label { display: block; font-size: 13px; margin-bottom: 8px; font-weight: bold; color: #333;}
-        .input-group input { width: 100%; padding: 8px; box-sizing: border-box; border-radius: 4px; border: 1px solid #ccc; font-size: 13px;}
+        .input-group input { width: 100%; padding: 10px; box-sizing: border-box; border-radius: 4px; border: 1px solid #ccc; font-size: 13px;}
         
         /* Tombol */
-        button { width: 100%; padding: 12px; background: #007BFF; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 14px; transition: background 0.3s; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 5px;}
+        button { width: 100%; padding: 14px; background: #007BFF; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 14px; transition: background 0.3s; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 5px; text-transform: uppercase;}
         button:hover { background: #0056b3; }
         #btnDownload { background: #28a745; display: none; }
         #btnDownload:hover { background: #218838; }
         
         /* Kotak Hasil & Catatan */
         .result-box { padding: 15px; background: #e2e3e5; font-size: 13px; border-left: 5px solid #007BFF; border-radius: 4px;}
-        .note { font-size: 11px; color: #dc3545; margin-top: 8px; line-height: 1.3; }
+        .note { font-size: 11px; color: #dc3545; margin-top: 8px; line-height: 1.3; font-style: italic;}
         
         /* Label Teks di Peta */
         .label-titik {
-            background: rgba(0, 0, 0, 0.35);
+            background: rgba(0, 0, 0, 0.4);
             border: 1px solid rgba(255, 255, 255, 0.3);
             color: #fff;
-            font-size: 10px;
+            font-size: 11px;
             font-weight: bold;
             box-shadow: none;
             line-height: 1.3;
             text-shadow: 1px 1px 2px #000;
         }
-        .leaflet-tooltip-left.label-titik::before { border-left-color: rgba(0,0,0,0.35); }
-        .leaflet-tooltip-right.label-titik::before { border-right-color: rgba(0,0,0,0.35); }
+        .leaflet-tooltip-left.label-titik::before { border-left-color: rgba(0,0,0,0.4); }
+        .leaflet-tooltip-right.label-titik::before { border-right-color: rgba(0,0,0,0.4); }
         
         /* Legenda */
         .legend { background: rgba(255,255,255,0.95); padding: 12px; font-size: 12px; line-height: 1.6; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.2); }
@@ -86,23 +87,19 @@
             <p>WebGIS Visualisasi & Analisis Akurasi Vertikal</p>
         </div>
         
-        <!-- Opsi 1: MSL & Titik Pengukuran -->
+        <!-- Area Input -->
         <div class="input-group">
             <label>1. Nilai MSL (m):</label>
-            <input type="number" step="any" id="tinggiMsl" placeholder="Contoh: 1.25">
-            
-            <label style="margin-top: 15px;">2. Upload Titik Pengukuran (.xlsx / .csv):</label>
-            <input type="file" id="fileExcel" accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel">
-            <div class="note">*Format Kolom (UTM): Nama_Titik, X_GNSS, Y_GNSS, Tinggi_GNSS, Tinggi_WaterLevel</div>
+            <input type="number" step="any" id="tinggiMsl" placeholder="Contoh: 1.04">
         </div>
 
-        <!-- Opsi 2: Batas Administrasi -->
         <div class="input-group">
-            <label>3. Upload Batas Administrasi (.geojson): <br><span style="font-weight:normal; font-size:11px; color:#666;">(Opsional) Menampilkan batas wilayah desa/kecamatan</span></label>
-            <input type="file" id="fileGeoJSON" accept=".geojson, .json" onchange="prosesGeoJSON()">
+            <label>2. Upload Titik Pengukuran (.xlsx / .csv):</label>
+            <input type="file" id="fileExcel" accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel">
+            <div class="note">*Format Kolom (UTM Zone 48S): Nama_Titik, X_GNSS, Y_GNSS, Tinggi_GNSS, Tinggi_WaterLevel</div>
         </div>
         
-        <button onclick="prosesExcel()">🔄 Hitung & Petakan Titik</button>
+        <button onclick="prosesExcel()">🗺️ Hitung & Petakan Titik</button>
         <button id="btnDownload" onclick="downloadData()">⬇️ Download Hasil (Excel)</button>
 
         <div id="hasilHitungan" class="result-box" style="display: none;"></div>
@@ -118,42 +115,56 @@
     
     <script>
         // --- 1. DEFINISI PETA DASAR (BASEMAPS) ---
-        var esriCitra = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { attribution: 'Tiles &copy; Esri' });
-        var googleTerrain = L.tileLayer('http://{s}.google.com/vt/lyrs=p&x={x}&y={y}&z={z}', { maxZoom: 20, subdomains:['mt0','mt1','mt2','mt3'], attribution: 'Google Terrain' });
-        var openTopo = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', { maxZoom: 17, attribution: 'OpenTopoMap' });
+        // Peta Citra Satelit
+        var esriCitra = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { attribution: 'Citra &copy; Esri' });
+        // Peta Topografi (Seperti di gambar Anda)
+        var openTopo = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', { maxZoom: 17, attribution: 'Topografi &copy; OpenTopoMap' });
+        // Peta Jalan Standard Google
+        var googleMap = L.tileLayer('http://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', { maxZoom: 20, subdomains:['mt0','mt1','mt2','mt3'], attribution: 'Google Maps' });
 
-        // --- 2. INISIALISASI PETA & LAYER ---
+        // --- 2. DEFINISI LAYER TAMBAHAN TRANSPARAN (OVERLAYS) ---
+        // Layer Batas Administrasi (Esri)
+        var batasAdmin = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', { transparent: true, attribution: 'Batas &copy; Esri' });
+        // Layer Jalan Raya (Esri)
+        var jalanRaya = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}', { transparent: true, attribution: 'Jalan &copy; Esri' });
+        // Layer Hybrid Google (Gabungan Jalan, Bangunan, dan Label)
+        var googleHybridLabels = L.tileLayer('http://{s}.google.com/vt/lyrs=h&x={x}&y={y}&z={z}', { maxZoom: 20, subdomains:['mt0','mt1','mt2','mt3'], transparent: true });
+
+        // --- 3. INISIALISASI PETA ---
         var map = L.map('map', {
-            center: [-5.358, 105.315],
+            center: [-5.358, 105.315], // Koordinat awal Lampung
             zoom: 14,
-            layers: [esriCitra] 
+            layers: [esriCitra] // Basemap default yang aktif
         });
 
-        // Layer Grup untuk Titik dan Administrasi
+        // Layer Grup untuk Titik Hitungan
         var markerGroup = L.layerGroup().addTo(map);
-        var adminLayer; // Menyimpan layer batas administrasi
 
-        // Menu Kontrol (Kanan Atas)
+        // --- 4. MEMBUAT MENU KONTROL LAYER DI KANAN ATAS ---
         var baseMaps = {
-            "Citra Satelit (Esri)": esriCitra,
-            "Terrain / Hillshade (Google)": googleTerrain,
-            "Topografi (OpenTopoMap)": openTopo
-        };
-        var overlayMaps = {
-            "Titik Pengukuran (GNSS)": markerGroup
+            "🛰️ Citra Satelit (Esri)": esriCitra,
+            "⛰️ Topografi (OpenTopoMap)": openTopo,
+            "🗺️ Peta Jalan (Google)": googleMap
         };
         
-        var layerControl = L.control.layers(baseMaps, overlayMaps).addTo(map);
+        var overlayMaps = {
+            "📍 Titik Pengukuran (GNSS)": markerGroup,
+            "🏛️ Batas Administrasi & Nama Tempat": batasAdmin,
+            "🛣️ Jaringan Jalan Raya": jalanRaya,
+            "🏘️ Jalan, Label & Bangunan (Google)": googleHybridLabels
+        };
+        
+        L.control.layers(baseMaps, overlayMaps, {collapsed: false}).addTo(map);
 
-        // --- 3. KONVERSI KOORDINAT & FUNGSI HITUNG ---
+        // --- 5. KONVERSI KOORDINAT & FUNGSI HITUNG ---
         proj4.defs("EPSG:32748", "+proj=utm +zone=48 +south +datum=WGS84 +units=m +no_defs");
         let dataHasil = [];
 
         function tentukanWarna(selisih) {
-            if (selisih <= 1.0) return "#00ff00"; // Hijau (Sangat Baik)
-            else if (selisih <= 5.0) return "#ffff00"; // Kuning (Cukup)
-            else if (selisih <= 15.0) return "#ffa500"; // Orange (Kurang)
-            else return "#ff0000"; // Merah (Buruk)
+            if (selisih <= 1.0) return "#00ff00"; // Hijau
+            else if (selisih <= 5.0) return "#ffff00"; // Kuning
+            else if (selisih <= 15.0) return "#ffa500"; // Orange
+            else return "#ff0000"; // Merah
         }
 
         // Legenda
@@ -169,7 +180,7 @@
         };
         legend.addTo(map);
 
-        // --- 4. FUNGSI PROSES EXCEL (TITIK) ---
+        // --- 6. FUNGSI PROSES EXCEL ---
         function prosesExcel() {
             let fileInput = document.getElementById('fileExcel');
             let msl = parseFloat(document.getElementById('tinggiMsl').value);
@@ -234,7 +245,7 @@
 
                 if(dataHasil.length > 0) {
                     document.getElementById('hasilHitungan').style.display = 'block';
-                    document.getElementById('hasilHitungan').innerHTML = `<b>BERHASIL!</b><br>Memetakan ${dataHasil.length} titik pengukuran.`;
+                    document.getElementById('hasilHitungan').innerHTML = `<b>BERHASIL!</b><br>Telah menghitung dan memetakan <b>${dataHasil.length}</b> titik ukur.`;
                     document.getElementById('btnDownload').style.display = 'block';
                     map.fitBounds(bounds, {padding: [50, 50]});
                 }
@@ -242,43 +253,7 @@
             reader.readAsArrayBuffer(file);
         }
 
-        // --- 5. FUNGSI PROSES GEOJSON (BATAS ADMINISTRASI) ---
-        function prosesGeoJSON() {
-            let fileInput = document.getElementById('fileGeoJSON');
-            if (!fileInput.files.length) return;
-
-            let file = fileInput.files[0];
-            let reader = new FileReader();
-
-            reader.onload = function(e) {
-                try {
-                    let geojsonData = JSON.parse(e.target.result);
-                    
-                    // Hapus layer lama jika sudah pernah upload batas admin
-                    if(adminLayer) {
-                        map.removeLayer(adminLayer);
-                        layerControl.removeLayer(adminLayer);
-                    }
-
-                    // Tampilkan poligon batas admin dengan garis putus-putus merah
-                    adminLayer = L.geoJSON(geojsonData, {
-                        style: { color: "#ff0000", weight: 2, dashArray: "5, 5", fillOpacity: 0.05 }
-                    }).addTo(map);
-
-                    // Tambahkan ke menu layer (kanan atas) agar bisa di ceklis/un-ceklis
-                    layerControl.addOverlay(adminLayer, "Batas Administrasi Wilayah");
-                    
-                    // Zoom peta ke wilayah batas admin
-                    map.fitBounds(adminLayer.getBounds());
-                    
-                } catch(err) {
-                    alert("Gagal membaca file Batas Administrasi. Pastikan formatnya adalah GeoJSON yang valid.");
-                }
-            };
-            reader.readAsText(file);
-        }
-
-        // --- 6. FUNGSI EKSPOR KE EXCEL ---
+        // --- 7. FUNGSI EKSPOR KE EXCEL ---
         function downloadData() {
             let worksheet = XLSX.utils.json_to_sheet(dataHasil);
             let workbook = XLSX.utils.book_new();
