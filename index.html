@@ -3,61 +3,106 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WebGIS Uji Akurasi Vertikal GNSS vs Waterpass</title>
+    <title>Pembuatan Program Perhitungan Ketinggian dan Ketelitian Berbasis Data Pasang Surut</title>
     
     <!-- CSS Leaflet -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     
     <style>
-        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; display: flex; gap: 20px; }
-        #sidebar { width: 320px; background: #f4f4f4; padding: 20px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); overflow-y: auto; max-height: 90vh;}
-        #map { flex-grow: 1; height: 90vh; border-radius: 8px; border: 2px solid #ccc; z-index: 1;}
-        .input-group { margin-bottom: 15px; }
-        .input-group label { display: block; font-size: 13px; margin-bottom: 5px; font-weight: bold;}
-        .input-group input { width: 100%; padding: 8px; box-sizing: border-box; border-radius: 4px; border: 1px solid #ccc;}
-        button { width: 100%; padding: 12px; background: #007BFF; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 14px; margin-bottom: 10px;}
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 15px; display: flex; gap: 15px; background-color: #e9ecef; }
+        
+        /* Desain Panel Sidebar */
+        #sidebar { 
+            width: 360px; 
+            background: #ffffff; 
+            padding: 20px; 
+            border-radius: 10px; 
+            box-shadow: 0 5px 15px rgba(0,0,0,0.15); 
+            overflow-y: auto; 
+            max-height: 90vh;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        /* Banner Judul Program */
+        .sidebar-header {
+            background: linear-gradient(135deg, #004085, #007BFF);
+            color: white;
+            padding: 20px 15px;
+            text-align: center;
+            border-radius: 8px;
+            margin-top: 0;
+            box-shadow: 0 3px 6px rgba(0,0,0,0.1);
+        }
+        .sidebar-header h2 { margin: 0; font-size: 16px; line-height: 1.4; text-transform: uppercase; letter-spacing: 0.5px; }
+        .sidebar-header p { margin: 8px 0 0 0; font-size: 12px; font-weight: 300; opacity: 0.9; }
+
+        /* Kontainer Peta */
+        #map { flex-grow: 1; height: 93vh; border-radius: 10px; border: none; box-shadow: 0 5px 15px rgba(0,0,0,0.15); z-index: 1;}
+        
+        /* Elemen Input */
+        .input-group { background: #f8f9fa; padding: 12px; border-radius: 6px; border: 1px solid #dee2e6; }
+        .input-group label { display: block; font-size: 13px; margin-bottom: 8px; font-weight: bold; color: #333;}
+        .input-group input { width: 100%; padding: 8px; box-sizing: border-box; border-radius: 4px; border: 1px solid #ccc; font-size: 13px;}
+        
+        /* Tombol */
+        button { width: 100%; padding: 12px; background: #007BFF; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 14px; transition: background 0.3s; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 5px;}
         button:hover { background: #0056b3; }
         #btnDownload { background: #28a745; display: none; }
         #btnDownload:hover { background: #218838; }
-        .result-box { margin-top: 20px; padding: 15px; background: #e2e3e5; font-size: 13px; border-left: 5px solid #007BFF; border-radius: 4px;}
-        .note { font-size: 11px; color: #dc3545; margin-top: 5px; }
         
-        /* Modifikasi Tampilan Label Teks di atas Peta Citra */
+        /* Kotak Hasil & Catatan */
+        .result-box { padding: 15px; background: #e2e3e5; font-size: 13px; border-left: 5px solid #007BFF; border-radius: 4px;}
+        .note { font-size: 11px; color: #dc3545; margin-top: 8px; line-height: 1.3; }
+        
+        /* Label Teks di Peta */
         .label-titik {
-            background: rgba(0, 0, 0, 0.6); /* Latar belakang hitam transparan */
-            border: none;
-            color: #fff; /* Teks putih */
+            background: rgba(0, 0, 0, 0.35);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: #fff;
             font-size: 10px;
             font-weight: bold;
             box-shadow: none;
             line-height: 1.3;
+            text-shadow: 1px 1px 2px #000;
         }
-        .leaflet-tooltip-left.label-titik::before { border-left-color: rgba(0,0,0,0.6); }
-        .leaflet-tooltip-right.label-titik::before { border-right-color: rgba(0,0,0,0.6); }
+        .leaflet-tooltip-left.label-titik::before { border-left-color: rgba(0,0,0,0.35); }
+        .leaflet-tooltip-right.label-titik::before { border-right-color: rgba(0,0,0,0.35); }
         
-        /* Legenda Warna */
-        .legend { background: white; padding: 10px; font-size: 12px; line-height: 1.5; border-radius: 5px; box-shadow: 0 0 15px rgba(0,0,0,0.2); }
-        .legend i { width: 15px; height: 15px; float: left; margin-right: 8px; border-radius: 50%; }
+        /* Legenda */
+        .legend { background: rgba(255,255,255,0.95); padding: 12px; font-size: 12px; line-height: 1.6; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.2); }
+        .legend i { width: 15px; height: 15px; float: left; margin-right: 8px; border-radius: 50%; border: 1px solid #999; }
+        .legend h4 { margin: 0 0 8px 0; font-size: 13px; color: #333; text-align: center; border-bottom: 1px solid #ccc; padding-bottom: 5px; }
     </style>
 </head>
 <body>
 
-    <!-- Panel Kontrol -->
+    <!-- Panel Sidebar Kiri -->
     <div id="sidebar">
-        <h3 style="margin-top: 0;">Upload Data & Ekspor</h3>
+        <!-- Banner Judul -->
+        <div class="sidebar-header">
+            <h2>Pembuatan Program Perhitungan Ketinggian dan Ketelitian Berbasis Data Pasang Surut</h2>
+            <p>WebGIS Visualisasi & Analisis Akurasi Vertikal</p>
+        </div>
         
+        <!-- Opsi 1: MSL & Titik Pengukuran -->
         <div class="input-group">
             <label>1. Nilai MSL (m):</label>
             <input type="number" step="any" id="tinggiMsl" placeholder="Contoh: 1.25">
-        </div>
-        
-        <div class="input-group">
-            <label>2. Upload File Excel (.xlsx / .csv):</label>
+            
+            <label style="margin-top: 15px;">2. Upload Titik Pengukuran (.xlsx / .csv):</label>
             <input type="file" id="fileExcel" accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel">
-            <div class="note">*Pastikan header kolom: Nama_Titik, X_GNSS, Y_GNSS, Tinggi_GNSS, Tinggi_WaterLevel</div>
+            <div class="note">*Format Kolom (UTM): Nama_Titik, X_GNSS, Y_GNSS, Tinggi_GNSS, Tinggi_WaterLevel</div>
+        </div>
+
+        <!-- Opsi 2: Batas Administrasi -->
+        <div class="input-group">
+            <label>3. Upload Batas Administrasi (.geojson): <br><span style="font-weight:normal; font-size:11px; color:#666;">(Opsional) Menampilkan batas wilayah desa/kecamatan</span></label>
+            <input type="file" id="fileGeoJSON" accept=".geojson, .json" onchange="prosesGeoJSON()">
         </div>
         
-        <button onclick="prosesExcel()">Hitung & Petakan</button>
+        <button onclick="prosesExcel()">🔄 Hitung & Petakan Titik</button>
         <button id="btnDownload" onclick="downloadData()">⬇️ Download Hasil (Excel)</button>
 
         <div id="hasilHitungan" class="result-box" style="display: none;"></div>
@@ -72,32 +117,50 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.9.0/proj4.js"></script>
     
     <script>
-        // 1. Inisialisasi Peta dengan Basemap Citra Satelit (Esri World Imagery)
-        var map = L.map('map').setView([-5.358, 105.315], 14);
-        L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-            attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
-        }).addTo(map);
+        // --- 1. DEFINISI PETA DASAR (BASEMAPS) ---
+        var esriCitra = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { attribution: 'Tiles &copy; Esri' });
+        var googleTerrain = L.tileLayer('http://{s}.google.com/vt/lyrs=p&x={x}&y={y}&z={z}', { maxZoom: 20, subdomains:['mt0','mt1','mt2','mt3'], attribution: 'Google Terrain' });
+        var openTopo = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', { maxZoom: 17, attribution: 'OpenTopoMap' });
 
+        // --- 2. INISIALISASI PETA & LAYER ---
+        var map = L.map('map', {
+            center: [-5.358, 105.315],
+            zoom: 14,
+            layers: [esriCitra] 
+        });
+
+        // Layer Grup untuk Titik dan Administrasi
         var markerGroup = L.layerGroup().addTo(map);
-        proj4.defs("EPSG:32748", "+proj=utm +zone=48 +south +datum=WGS84 +units=m +no_defs");
+        var adminLayer; // Menyimpan layer batas administrasi
 
-        // Variabel global untuk menyimpan data hasil hitungan
+        // Menu Kontrol (Kanan Atas)
+        var baseMaps = {
+            "Citra Satelit (Esri)": esriCitra,
+            "Terrain / Hillshade (Google)": googleTerrain,
+            "Topografi (OpenTopoMap)": openTopo
+        };
+        var overlayMaps = {
+            "Titik Pengukuran (GNSS)": markerGroup
+        };
+        
+        var layerControl = L.control.layers(baseMaps, overlayMaps).addTo(map);
+
+        // --- 3. KONVERSI KOORDINAT & FUNGSI HITUNG ---
+        proj4.defs("EPSG:32748", "+proj=utm +zone=48 +south +datum=WGS84 +units=m +no_defs");
         let dataHasil = [];
 
-        // Fungsi Penentuan Warna Berdasarkan Ketelitian (Selisih)
         function tentukanWarna(selisih) {
-            // Anda bisa mengubah rentang angka (threshold) ini sesuai standar toleransi project Anda
-            if (selisih <= 1.0) return "#00ff00"; // Hijau (Sangat Baik / < 1m)
-            else if (selisih <= 5.0) return "#ffff00"; // Kuning (Cukup / 1m - 5m)
-            else if (selisih <= 15.0) return "#ffa500"; // Orange (Kurang / 5m - 15m)
-            else return "#ff0000"; // Merah (Buruk / > 15m)
+            if (selisih <= 1.0) return "#00ff00"; // Hijau (Sangat Baik)
+            else if (selisih <= 5.0) return "#ffff00"; // Kuning (Cukup)
+            else if (selisih <= 15.0) return "#ffa500"; // Orange (Kurang)
+            else return "#ff0000"; // Merah (Buruk)
         }
 
-        // Tambahkan Legenda ke Peta
+        // Legenda
         var legend = L.control({position: 'bottomright'});
         legend.onAdd = function (map) {
             var div = L.DomUtil.create('div', 'legend');
-            div.innerHTML += '<b>Ketelitian (ΔZ)</b><br>';
+            div.innerHTML += '<h4>Ketelitian (ΔZ)</h4>';
             div.innerHTML += '<i style="background: #00ff00"></i> &le; 1.0 m<br>';
             div.innerHTML += '<i style="background: #ffff00"></i> 1.1 - 5.0 m<br>';
             div.innerHTML += '<i style="background: #ffa500"></i> 5.1 - 15.0 m<br>';
@@ -106,12 +169,13 @@
         };
         legend.addTo(map);
 
+        // --- 4. FUNGSI PROSES EXCEL (TITIK) ---
         function prosesExcel() {
             let fileInput = document.getElementById('fileExcel');
             let msl = parseFloat(document.getElementById('tinggiMsl').value);
 
             if (isNaN(msl)) { alert("Harap isi Nilai Tinggi MSL!"); return; }
-            if (!fileInput.files.length) { alert("Harap pilih file Excel!"); return; }
+            if (!fileInput.files.length) { alert("Harap upload file Excel Titik Pengukuran!"); return; }
 
             let file = fileInput.files[0];
             let reader = new FileReader();
@@ -122,7 +186,7 @@
                 let jsonData = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
 
                 markerGroup.clearLayers();
-                dataHasil = []; // Kosongkan data sebelumnya
+                dataHasil = []; 
                 let bounds = [];
 
                 jsonData.forEach(row => {
@@ -142,7 +206,6 @@
                         let selisih = Math.abs(z_gnss - tinggi_wp_terikat);
                         let warnaTitik = tentukanWarna(selisih);
 
-                        // Menyimpan data ke array untuk fitur Download
                         dataHasil.push({
                             "Nama Titik": nama,
                             "X UTM (Zone 48S)": x_utm,
@@ -154,45 +217,68 @@
                             "Selisih / Deviasi (m)": selisih
                         });
 
-                        // Membuat Titik Bulat (Circle Marker)
                         let circle = L.circleMarker([lintang, bujur], {
-                            radius: 6,
-                            fillColor: warnaTitik,
-                            color: "#ffffff", // Garis tepi putih
-                            weight: 1.5,
-                            opacity: 1,
-                            fillOpacity: 0.9
+                            radius: 6, fillColor: warnaTitik, color: "#ffffff", weight: 1.5, opacity: 1, fillOpacity: 0.9
                         }).addTo(markerGroup);
 
-                        // Menambahkan Teks di Sebelah Titik (Tooltip Permanen)
                         let labelTeks = `
                             <span style="color:#00e5ff">${nama}</span><br>
                             GNSS: ${z_gnss.toFixed(2)}m<br>
                             WP: ${tinggi_wp_terikat.toFixed(2)}m<br>
                             Beda: ${selisih.toFixed(2)}m
                         `;
-                        circle.bindTooltip(labelTeks, {
-                            permanent: true, 
-                            direction: 'right', 
-                            className: 'label-titik',
-                            offset: [5, 0] // Geser sedikit dari pusat titik
-                        });
-
+                        circle.bindTooltip(labelTeks, { permanent: true, direction: 'right', className: 'label-titik', offset: [5, 0] });
                         bounds.push([lintang, bujur]);
                     }
                 });
 
                 if(dataHasil.length > 0) {
                     document.getElementById('hasilHitungan').style.display = 'block';
-                    document.getElementById('hasilHitungan').innerHTML = `<b>BERHASIL!</b><br>Memetakan ${dataHasil.length} titik.`;
-                    document.getElementById('btnDownload').style.display = 'block'; // Munculkan tombol download
+                    document.getElementById('hasilHitungan').innerHTML = `<b>BERHASIL!</b><br>Memetakan ${dataHasil.length} titik pengukuran.`;
+                    document.getElementById('btnDownload').style.display = 'block';
                     map.fitBounds(bounds, {padding: [50, 50]});
                 }
             };
             reader.readAsArrayBuffer(file);
         }
 
-        // Fungsi untuk mengunduh data kembali ke Excel
+        // --- 5. FUNGSI PROSES GEOJSON (BATAS ADMINISTRASI) ---
+        function prosesGeoJSON() {
+            let fileInput = document.getElementById('fileGeoJSON');
+            if (!fileInput.files.length) return;
+
+            let file = fileInput.files[0];
+            let reader = new FileReader();
+
+            reader.onload = function(e) {
+                try {
+                    let geojsonData = JSON.parse(e.target.result);
+                    
+                    // Hapus layer lama jika sudah pernah upload batas admin
+                    if(adminLayer) {
+                        map.removeLayer(adminLayer);
+                        layerControl.removeLayer(adminLayer);
+                    }
+
+                    // Tampilkan poligon batas admin dengan garis putus-putus merah
+                    adminLayer = L.geoJSON(geojsonData, {
+                        style: { color: "#ff0000", weight: 2, dashArray: "5, 5", fillOpacity: 0.05 }
+                    }).addTo(map);
+
+                    // Tambahkan ke menu layer (kanan atas) agar bisa di ceklis/un-ceklis
+                    layerControl.addOverlay(adminLayer, "Batas Administrasi Wilayah");
+                    
+                    // Zoom peta ke wilayah batas admin
+                    map.fitBounds(adminLayer.getBounds());
+                    
+                } catch(err) {
+                    alert("Gagal membaca file Batas Administrasi. Pastikan formatnya adalah GeoJSON yang valid.");
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        // --- 6. FUNGSI EKSPOR KE EXCEL ---
         function downloadData() {
             let worksheet = XLSX.utils.json_to_sheet(dataHasil);
             let workbook = XLSX.utils.book_new();
