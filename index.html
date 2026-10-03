@@ -122,7 +122,7 @@
             <div class="note">*Format Kolom (UTM Zone 48S): Nama_Titik, X_GNSS, Y_GNSS, Tinggi_GNSS, Tinggi_WaterLevel</div>
         </div>
         
-        <button onclick="prosesExcel()">🗺️ Hitung & Petakan Titik</button>
+        <button onclick="prosesExcel()">🗺️️ Hitung & Petakan Titik</button>
         <button id="btnDownload" onclick="downloadData()">⬇️ Download Hasil (Excel)</button>
 
         <div id="hasilHitungan" class="result-box" style="display: none;"></div>
@@ -221,8 +221,8 @@
                         let bujur = latlon[0];
                         let lintang = latlon[1];
 
-                        // Rumus Ortometrik Terikat MSL & Uji Akurasi Vertikal
-                        let tinggi_wp_terikat = z_wp + msl;
+                        // RUMUS TERBARU: Tinggi WP Terikat = Z_WP - Nilai MSL, dan Delta Z = |Z_GNSS - Tinggi WP Terikat|
+                        let tinggi_wp_terikat = z_wp - msl;
                         let selisih = Math.abs(z_gnss - tinggi_wp_terikat);
                         let warnaTitik = tentukanWarna(selisih);
 
